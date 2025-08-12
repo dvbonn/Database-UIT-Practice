@@ -1,0 +1,143 @@
+﻿CREATE DATABASE QLCS
+
+USE QLCS
+
+CREATE TABLE CASI(
+	MaCS CHAR(5) PRIMARY KEY,
+	HoTen VARCHAR(30),
+	NgaySinh SMALLDATETIME,
+	SoDT VARCHAR(15)
+) 
+GO
+
+CREATE TABLE TACGIA(
+	MaTG CHAR(5) PRIMARY KEY,
+	HoTen VARCHAR(20),
+	NgSinh SMALLDATETIME, 
+	SoDT INT
+) 
+GO
+
+CREATE TABLE BAIHAT(
+	MaBH CHAR(5) PRIMARY KEY,
+	TenBH VARCHAR(25),
+	NgayST SMALLDATETIME, 
+	MaTG CHAR(5) REFERENCES TACGIA
+) 
+GO
+
+CREATE TABLE LICHDIEN(
+	NgayDien SMALLDATETIME,
+	MaCS CHAR(5) REFERENCES CASI, 
+	MaBH CHAR(5) REFERENCES BAIHAT, 
+	DiaDiem VARCHAR(50),
+	TenSK VARCHAR(20), 
+	PRIMARY KEY(NgayDien, MaCS, MaBH) 
+)
+GO
+
+--CAU--2----------------------------
+--A---------------------------------
+CREATE TRIGGER trg_MinTwoSongPerDay ON LICHDIEN
+AFTER INSERT, UPDATE
+AS BEGIN 
+	IF EXISTS(
+		SELECT MaCS, NgayDien
+		FROM LICHDIEN
+		GROUP BY MaCS, NgayDien
+		HAVING COUNT(MaBH) < 2
+	)
+	BEGIN 
+		RAISERROR('At least 2 song per day for singer.', 16, 1)
+		ROLLBACK TRANSACTION;
+	END
+END
+
+--B----------------------------------
+CREATE TRIGGER trg_Check_Birth ON LICHDIEN
+AFTER INSERT, UPDATE
+AS BEGIN
+	IF EXISTS(
+		SELECT 1 FROM inserted I
+		JOIN CASI C ON I.MaCS = C.MaCS
+		WHERE I.NgayDien < C.NgaySinh
+	)
+	BEGIN 
+		RAISERROR(N'Ngày diễn phải lớn hơn ngày sinh của ca sĩ', 16, 1)
+		ROLLBACK TRANSACTION; 
+	END
+END
+
+--CAU--3------------------------------
+--A-----------------------------------
+SELECT BH.MaBH, BH.TenBH FROM BAIHAT BH
+JOIN LICHDIEN LD ON BH.MaBH = LD.MaBH 
+JOIN TACGIA TG ON BH.MaTG = TG.MaTG
+WHERE ld.NgayDien >= '2021-09-26'
+  AND ld.NgayDien <  '2021-09-27'
+  AND TG.HoTen = N'Trinh Cong Son'
+ORDER BY BH.TenBH ASC 
+GO
+
+--B-----------------------------------
+SELECT TG.MaTG, TG.HoTen FROM TACGIA TG
+JOIN BAIHAT BH ON TG.MaTG = BH.MaTG
+JOIN LICHDIEN LD ON BH.MaBH = LD.MaBH 
+JOIN CASI CS ON LD.MaCS = CS.MaCS
+WHERE BH.TenBH = N'Nối vòng tay lớn'
+	AND CS.HoTen = N'Tạ Minh Tâm'
+	AND ld.NgayDien >= '2021-09-26'
+	AND ld.NgayDien <  '2021-09-27'
+GO
+--C-----------------------------------
+SELECT CS.MaCS, CS.HoTen, COUNT(LD.MaBH) AS SLBH FROM CASI CS
+JOIN LICHDIEN LD ON CS.MaCS = LD.MaCS 
+WHERE LD.NgayDien >= '2021-09-26' AND LD.NgayDien <  '2021-09-27'
+GROUP BY CS.MaCS, CS.HoTen
+GO
+
+--D-----------------------------------
+SELECT C.HoTen FROM CASI C
+JOIN LICHDIEN LD ON C.MaCS = LD.MaCS
+JOIN BAIHAT BH ON LD.MaBH = BH.MaBH
+JOIN TACGIA TG ON BH.MaTG = TG.MaTG
+WHERE LD.NgayDien >= '2023-12-22' AND LD.NgayDien < '2023-12-23'
+	AND LD.TenSK = N'sân vận động Mỹ Đình Hà Nội' 
+	AND TG.HoTen = N'Văn Cao'
+
+EXCEPT
+
+SELECT C.HoTen FROM CASI C
+JOIN LICHDIEN LD ON C.MaCS = LD.MaCS
+JOIN BAIHAT BH ON LD.MaBH = BH.MaBH
+JOIN TACGIA TG ON BH.MaTG = TG.MaTG
+WHERE LD.NgayDien >= '2023-12-22' AND LD.NgayDien < '2023-12-23'
+	AND LD.TenSK = N'sân vận động Mỹ Đình Hà Nội' 
+	AND TG.HoTen = N'Hoàng Quý' 
+GO
+--E-------------------------------------
+SELECT C.HoTen FROM CASI C
+WHERE NOT EXISTS(
+	SELECT * FROM BAIHAT BH 
+	JOIN TACGIA TG ON BH.MaTG = TG.MaTG
+	WHERE TG.HoTen = N'Trịnh Công Sơn'
+		AND YEAR(BH.NgayST) > 1990 
+		AND NOT EXISTS(
+			SELECT * FROM LICHDIEN LD
+			WHERE LD.MaCS = C.MaCS
+			  AND LD.MaBH = BH.MaBH
+		)
+)	
+GO
+
+--F--------------------------------
+SELECT TOP 1 WITH TIES C.MaCS, C.HoTen FROM CASI C
+JOIN LICHDIEN LD ON C.MaCS = LD.MaCS 
+JOIN BAIHAT BH ON LD.MaBH = BH.MaBH
+JOIN TACGIA TG ON BH.MaTG = TG.MaTG 
+WHERE TG.HoTen =N'Trịnh Công Sơn'
+GROUP BY C.MaCS, C.HoTen
+ORDER BY COUNT(DISTINCT LD.MaBH) DESC
+GO
+
+

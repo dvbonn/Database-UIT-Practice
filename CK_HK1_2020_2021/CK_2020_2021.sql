@@ -1,0 +1,173 @@
+﻿CREATE DATABASE CK_2020_2021
+
+USE CK_2020_2021
+
+CREATE TABLE BENHNHAN (
+    MABN CHAR(6) PRIMARY KEY,
+    HOTEN NVARCHAR(100),
+    NGSINH DATE,
+    CMND VARCHAR(20),
+    DIACHI NVARCHAR(200),
+    DOITUONG NVARCHAR(50),
+    SLPT INT
+)
+GO
+
+CREATE TABLE KHAMBENH (
+    MAKB CHAR(6) PRIMARY KEY,
+    MABN CHAR(6),
+    BENH NVARCHAR(100),
+    BENHKT NVARCHAR(100),
+    BATDAU DATETIME,
+    KETTHUC DATETIME,
+    KETLUAN NVARCHAR(200),
+    TAIKHAM DATE,
+    FOREIGN KEY (MABN) REFERENCES BENHNHAN(MABN)
+)
+GO
+
+CREATE TABLE PHAUTHUAT (
+    MAPT CHAR(6) PRIMARY KEY,
+    MAKB CHAR(6),
+    BOPHANPT NVARCHAR(100),
+    LOAIPT NVARCHAR(100),
+    KETQUA NVARCHAR(200),
+    FOREIGN KEY (MAKB) REFERENCES KHAMBENH(MAKB)
+)
+GO
+
+CREATE TABLE BACSI (
+    MABS CHAR(6) PRIMARY KEY,
+    HOTEN NVARCHAR(100),
+    NAMSINH INT,
+    CHUYENMON NVARCHAR(100),
+    KHOA NVARCHAR(100),
+    BENHVIEN NVARCHAR(200)
+)
+GO
+
+CREATE TABLE PHUTRACH (
+    MABS CHAR(6),
+    MAKB CHAR(6),
+    BATDAUPT DATETIME,
+    KETTHUCPT DATETIME,
+    PRIMARY KEY (MABS, MAKB),
+    FOREIGN KEY (MABS) REFERENCES BACSI(MABS),
+    FOREIGN KEY (MAKB) REFERENCES KHAMBENH(MAKB)
+)
+GO
+
+--CAU--2----------------------------------------
+--A-Cho biết thông tin bệnh nhân (HOTEN, CMND) thuộc đối tượng ‘BHYT’ hoặc có địa chỉ ở 
+--‘Đồng Nai’. Kết quả được sắp xếp theo số lần phẫu thuật giảm dần.
+SELECT HOTEN, CMND FROM BENHNHAN
+WHERE DOITUONG = 'BHYT' AND DIACHI = N'Đồng Nai'
+ORDER BY SLPT DESC
+GO
+
+--B-Cho biết thông tin (MAKB, MABN, HOTEN) của những bệnh nhân sinh sau năm 2020 có khám
+--bệnh chính là ‘Tim mạch’.
+SELECT KB.MAKB, BN.MABN, BN.HOTEN FROM KHAMBENH KB
+JOIN BENHNHAN BN ON KB.MABN = BN.MABN 
+WHERE YEAR(BN.NGSINH) > 2020 AND KB.BENH = N'Tim mạch' 
+GO
+
+--C-Cho biết số lần khám bệnh của từng bệnh nhân trong năm 2020. Thông tin hiển thị gồm: MABN,
+--HOTEN và SL
+SELECT BN.MABN, BN.HOTEN, COUNT(KB.MAKB) AS SL
+FROM BENHNHAN BN 
+JOIN KHAMBENH KB ON BN.MABN = KB.MABN
+WHERE YEAR(KB.BATDAU) = 2020
+GROUP BY BN.MABN, BN.HOTEN
+GO
+
+--D-Cho biết thông tin những bác sĩ (MABS, HOTEN) có chuyên môn ‘Tai-Mũi-Họng’ chưa được
+--phụ trách khám bệnh trong năm 2020 (BATDAUPT)
+SELECT BS.MABS, BS.HOTEN
+FROM BACSI BS
+WHERE BS.CHUYENMON = N'Tai-Mũi-Họng'
+AND NOT EXISTS(
+	SELECT 1 
+	FROM PHUTRACH PT 
+	WHERE PT.MABS = BS.MABS AND YEAR(PT.BATDAUPT) = 2020
+)
+GO
+
+--E-Cho biết thông tin (MABS, HOTEN) của những bác sĩ chuyên môn ‘Hồi sức - Cấp cứu’ tham
+--gia tất cả các mã khám bệnh của bệnh nhân ‘Nguyễn Văn A’.
+SELECT BS.MABS, BS.HOTEN
+FROM BACSI BS
+WHERE BS.CHUYENMON = N'Hồi sức - Cấp cứu'
+AND NOT EXISTS(
+	SELECT 1
+	FROM KHAMBENH KB 
+	JOIN BENHNHAN BN ON KB.MABN = BN.MABN 
+	WHERE BN.HOTEN = N'Nguyễn Văn A'
+	AND NOT EXISTS(
+		SELECT 1
+		FROM PHUTRACH PT 
+		WHERE PT.MABS = BS.MABS AND PT.MAKB = KB.MAKB
+	)
+)
+GO
+
+--F-Cho biết thông tin bác sĩ (MABS, HOTEN) có số lần phụ trách khám bệnh nhiều nhất.
+SELECT TOP 1 PT.MABS, BS.HOTEN, COUNT(*) AS SL 
+FROM BACSI BS
+JOIN PHUTRACH PT ON BS.MABS = PT.MABS
+GROUP BY PT.MABS, BS.HOTEN
+ORDER BY SL DESC 
+
+GO
+
+---------------------------------------------------------------
+/*
+SELECT FROM BENHNHAN
+
+DROP TABLE BENHNHAN
+DROP TABLE KHAMBENH
+DROP TABLE PHAUTHUAT
+DROP TABLE BACSI
+DROP TABLE PHUTRACH
+*/
+--INSERT TO TEST 
+INSERT INTO BENHNHAN (MABN, HOTEN, NGSINH, CMND, DIACHI, DOITUONG, SLPT) VALUES
+('BN10', N'Nguyễn Văn A', '1990-01-01', '999999999', N'TP HCM', 'BHYT', 2),
+('BN01', N'Nguyễn Văn A', '1990-05-12', '123456789', N'Hà Nội', N'BHYT', 2),
+('BN02', N'Lê Thị B', '1995-03-22', '987654321', N'Đồng Nai', N'Tự nguyện', 0),
+('BN03', N'Trần Văn C', '2021-08-10', '111222333', N'Bình Dương', N'BHYT', 1),
+('BN04', N'Phạm Thị D', '1985-12-01', '444555666', N'Đồng Nai', N'Khác', 4);
+
+INSERT INTO KHAMBENH (MAKB, MABN, BENH, BENHKT, BATDAU, KETTHUC, KETLUAN, TAIKHAM) VALUES
+('KBA1', 'BN10', N'Hô hấp', NULL, '2022-01-01 08:00', '2022-01-01 09:00', N'Ổn', NULL),
+('KBA2', 'BN10', N'Sốt', NULL, '2022-02-01 08:00', '2022-02-01 09:00', N'Ổn', NULL),
+('KB01', 'BN01', N'Tim mạch', NULL, '2020-06-01 09:00', '2020-06-01 10:00', N'Ổn định', NULL),
+('KB02', 'BN02', N'Hô hấp', NULL, '2020-07-15 10:00', '2020-07-15 10:30', N'Khỏi', '2020-08-01'),
+('KB03', 'BN01', N'Hô hấp', NULL, '2021-01-20 14:00', '2021-01-20 15:00', N'Tái khám sau', '2021-02-20'),
+('KB04', 'BN03', N'Tim mạch', NULL, '2023-03-01 08:00', '2023-03-01 09:00', N'Theo dõi', NULL),
+('KB05', 'BN04', N'Thần kinh', NULL, '2020-05-10 13:00', '2020-05-10 14:00', N'Ổn', NULL);
+
+INSERT INTO BACSI (MABS, HOTEN, NAMSINH, CHUYENMON, KHOA, BENHVIEN) VALUES
+('BS99', N'Bác sĩ Siêu Cấp', 1975, N'Nội tổng quát', N'Nội', N'BV TW'),
+('BS01', N'Bác sĩ X', 1975, N'Tai-Mũi-Họng', N'Nội', N'BV Bạch Mai'),
+('BS02', N'Bác sĩ Y', 1980, N'Tim mạch', N'Ngoại', N'BV Chợ Rẫy'),
+('BS03', N'Bác sĩ Z', 1982, N'Tai-Mũi-Họng', N'Nội', N'BV Chợ Rẫy'),
+('BS10', N'Bác sĩ Hồi sức 1', 1980, N'Hồi sức - Cấp cứu', N'Hồi sức', N'BV TW'),
+('BS11', N'Bác sĩ Hồi sức 2', 1985, N'Hồi sức - Cấp cứu', N'Hồi sức', N'BV TW');
+
+
+INSERT INTO PHUTRACH (MABS, MAKB, BATDAUPT, KETTHUCPT) VALUES
+('BS99', 'KB01', '2021-01-01 08:00', '2021-01-01 09:00'),
+('BS99', 'KB02', '2021-02-01 08:00', '2021-02-01 09:00'),
+('BS99', 'KB03', '2021-03-01 08:00', '2021-03-01 09:00'),
+('BS99', 'KB04', '2021-04-01 08:00', '2021-04-01 09:00'),
+('BS99', 'KB05', '2021-05-01 08:00', '2021-05-01 09:00'),
+('BS11', 'KBA1', '2022-01-01 08:00', '2022-01-01 09:00'),
+('BS10', 'KBA1', '2022-01-01 08:00', '2022-01-01 09:00'),
+('BS10', 'KBA2', '2022-02-01 08:00', '2022-02-01 09:00'),
+('BS01', 'KB01', '2020-06-01 09:00', '2020-06-01 10:00'),
+('BS02', 'KB03', '2021-01-20 14:00', '2021-01-20 15:00');
+
+INSERT INTO PHAUTHUAT (MAPT, MAKB, BOPHANPT, LOAIPT, KETQUA) VALUES
+('PT01', 'KB01', N'Tim', N'Phẫu thuật tim hở', N'Thành công'),
+('PT02', 'KB03', N'Phổi', N'Nội soi', N'Thành công');
