@@ -73,7 +73,7 @@ CREATE TABLE CONGBOBB (
     FOREIGN KEY (MaNV) REFERENCES NHANVIEN(MaNV),
     FOREIGN KEY (MaBB) REFERENCES BAIBAOKH(MaBB)
 );
-
+--Đề 1----------------------------------------------------------
 --CAU 2
 --A-Liệt kê nhân viên (MaNV, HoTen) và tên phòng (TenPhong) của phòng có nhiệm vụ là ‘Nghiên cứu’.
 --Sắp xếp kết quả trả về giảm dần theo mã nhân viên.
@@ -144,4 +144,67 @@ ORDER BY ROW_NUMBER() OVER (
            PARTITION BY NV.MaPhong 
            ORDER BY COUNT(TG.MaDT) ASC
          )
+GO
+
+--Đề 2----------------------------------------------------------
+--Câu 2
+--a
+SELECT NV.MaNV, NV.HoTen, TG.MaDT FROM NHANVIEN NV
+JOIN THAMGIADT TG ON NV.MaNV = TG.MaNV 
+WHERE TG.VaiTroDT = 'CN' 
+ORDER BY NV.MaNV ASC
+GO
+
+--b
+SELECT NV.MaNV, NV.HoTen, BB.Hang FROM NHANVIEN NV
+JOIN CONGBOBB CB ON NV.MaNV = CB.MaNV
+JOIN BAIBAOKH BB ON CB.MaBB = BB.MaBB
+WHERE BB.TenBB = 'TCQT' AND CB.VaiTroBB = 'TGC'
+GO
+
+--c
+SELECT NV.MaNV, NV.HoTen FROM NHANVIEN NV
+JOIN CONGBOBB CB ON NV.MaNV = CB.MaNV
+WHERE CB.VaiTroBB = 'TGC'
+
+INTERSECT
+
+SELECT NV.MaNV, NV.HoTen FROM NHANVIEN NV
+JOIN CONGBOBB CB ON NV.MaNV = CB.MaNV
+WHERE CB.VaiTroBB = 'DTG'
+
+GO
+
+--d
+SELECT NV.MaNV, NV.HoTen, COUNT(TG.MaDT) AS SLDT FROM NHANVIEN NV
+JOIN THAMGIADT TG ON NV.MaNV = TG.MaNV
+WHERE TG.VaiTroDT = 'CNDT' 
+GROUP BY NV.MaNV, NV.HoTen
+GO
+
+--e
+SELECT NV.HoTen FROM NHANVIEN NV
+WHERE NOT EXISTS(
+				SELECT * FROM BAIBAOKH BB
+				WHERE BB.TenBB = 'HNQT' AND BB.MaDT = 'DT02'
+				AND NOT EXISTS(
+							SELECT * FROM CONGBOBB CB
+							WHERE NV.MaNV = CB.MaNV
+							AND BB.MaBB = CB.MaBB
+							)
+				)
+GO
+
+--f
+SELECT NV.MaNV, NV.HoTen, NV.MaPhong, COUNT(CB.MaNV) AS SLBB FROM NHANVIEN NV
+JOIN CONGBOBB CB ON NV.MaNV = CB.MaNV
+AND NV.MaNV IN (
+				SELECT TOP 1 WITH TIES NV2.MaNV FROM NHANVIEN NV2
+				JOIN CONGBOBB CB2 ON NV2.MaNV = CB2.MaNV
+				WHERE NV2.MaPhong = NV.MaPhong
+				GROUP BY NV2.MaNV
+				ORDER BY COUNT(CB2.MaNV) ASC
+				)
+GROUP BY NV.MaPhong ,NV.MaNV, NV.HoTen
+
 GO
